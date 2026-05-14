@@ -77,7 +77,7 @@ Entrepreneur  ×  TikTok  ×  Cinematic  ×  Friday
 ### 2. Open the app
 
 **Option A — Live:**
-👉 [cristinageafar.github.io/ai-video-prompt-generator](https://cristinageafar.github.io/ai-video-prompt-generator)
+👉 [cristinageafarhttps://crisgea71.github.io/ai-video-prompt-generator//ai-video-prompt-generator](https://cristinageafar.github.io/ai-video-prompt-generator)
 
 **Option B — Local:**
 ```bash
