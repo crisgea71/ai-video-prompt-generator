@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Video Prompt Generator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #080812;
+      --surface: #11112a;
+      --surface2: #17173a;
+      --border: #252548;
+      --purple: #7c3aed;
+      --pink: #db2777;
+      --orange: #f97316;
+      --green: #10b981;
+      --cyan: #06b6d4;
+      --yellow: #eab308;
+      --text: #f0f0f8;
+      --muted: #8888aa;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 20px 80px;
+    }
+
+    header { text-align: center; margin-bottom: 44px; }
+    header h1 {
+      font-size: 2.3rem;
+      font-weight: 900;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, #a78bfa 0%, #f472b6 50%, #fb923c 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    header p { color: var(--muted); margin-top: 8px; font-size: 0.95rem; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 32px;
+      width: 100%;
+      max-width: 700px;
+      box-shadow: 0 12px 60px rgba(0,0,0,0.5);
+    }
+
+    /* ── Divider ── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 24px 0;
+    }
+
+    /* ── Field ── */
+    .field { margin-bottom: 24px; }
+    .field:last-of-type { margin-bottom: 0; }
+    .field-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 1.3px;
+      text-transform: uppercase;
+      color: var(--purple);
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    /* ── API Key ── */
+    .api-row { display: flex; gap: 10px; align-items: center; }
+    .api-row input {
+      flex: 1;
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 11px 16px;
+      font-size: 0.88rem;
+      color: var(--text);
+      font-family: monospace;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .api-row input:focus { border-color: var(--purple); }
+    .api-row input::placeholder { color: var(--muted); }
+    .toggle-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .toggle-btn:hover { border-color: var(--purple); color: var(--text); }
+    .api-saved { font-size: 0.75rem; color: var(--green); margin-top: 8px; display: none; }
+
+    /* ── Pill options ── */
+    .options { display: flex; flex-wrap: wrap; gap: 8px; }
+    .options input[type="radio"] { display: none; }
+    .options label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: 50px;
+      padding: 9px 18px;
+      font-size: 0.87rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .options input[type="radio"]:checked + label {
+      background: linear-gradient(135deg, var(--purple), var(--pink));
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 0 0 20px rgba(124,58,237,0.3);
+    }
+    .options label:hover { border-color: var(--purple); color: var(--text); }
+
+    /* ── AI Tool selector (bigger, highlighted) ── */
+    .tool-options { display: flex; gap: 12px; flex-wrap: wrap; }
+    .tool-options input[type="radio"] { display: none; }
+    .tool-options label {
+      flex: 1;
+      min-width: 140px;
+      text-align: center;
+      background: var(--bg);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 20px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .tool-options label .tool-name { display: block; font-size: 1rem; margin-top: 4px; color: var(--text); }
+    .tool-options label .tool-desc { display: block; font-size: 0.72rem; margin-top: 4px; color: var(--muted); font-weight: 500; }
+    .tool-options input[type="radio"]:checked + label {
+      border-color: var(--cyan);
+      background: rgba(6,182,212,0.08);
+      color: var(--cyan);
+      box-shadow: 0 0 20px rgba(6,182,212,0.2);
+    }
+    .tool-options input[type="radio"]:checked + label .tool-name { color: var(--cyan); }
+    .tool-options label:hover { border-color: var(--cyan); }
+
+    /* ── Day selector ── */
+    .days { display: flex; gap: 6px; flex-wrap: wrap; }
+    .days input[type="radio"] { display: none; }
+    .days label {
+      width: 70px;
+      text-align: center;
+      padding: 8px 4px;
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .days label span { display: block; font-size: 0.62rem; font-weight: 500; margin-top: 2px; color: #555; }
+    .days input[type="radio"]:checked + label {
+      background: linear-gradient(135deg, #0ea5e9, #6366f1);
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 0 0 14px rgba(99,102,241,0.3);
+    }
+    .days input[type="radio"]:checked + label span { color: rgba(255,255,255,0.65); }
+    .days label:hover { border-color: #6366f1; color: var(--text); }
+
+    /* ── Generate ── */
+    #generate {
+      width: 100%;
+      padding: 17px;
+      font-size: 1.05rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--purple), var(--pink));
+      color: #fff;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      margin-top: 28px;
+      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 6px 28px rgba(124,58,237,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    #generate:hover:not(:disabled) { opacity: 0.9; transform: translateY(-2px); }
+    #generate:active:not(:disabled) { transform: translateY(0); }
+    #generate:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2.5px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Output ── */
+    #output {
+      width: 100%;
+      max-width: 700px;
+      margin-top: 32px;
+      display: none;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .section-label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 1.3px;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    /* Hook */
+    .hook-label { color: var(--orange); }
+    .hook-label .dot { background: var(--orange); }
+    .hook-box {
+      font-size: 1.2rem;
+      font-weight: 700;
+      line-height: 1.55;
+      color: #fff;
+      background: rgba(249,115,22,0.08);
+      border-left: 3px solid var(--orange);
+      padding: 16px 20px;
+      border-radius: 0 14px 14px 0;
+    }
+
+    /* Videos */
+    .videos-label { color: var(--purple); }
+    .videos-label .dot { background: var(--purple); }
+
+    .video-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+    .video-item:last-child { margin-bottom: 0; }
+
+    .video-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 18px 20px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .video-header:hover { background: rgba(124,58,237,0.07); }
+    .video-num {
+      width: 32px; height: 32px; min-width: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--purple), var(--pink));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem; font-weight: 800; color: #fff;
+    }
+    .video-title { font-size: 1rem; font-weight: 700; color: var(--text); flex: 1; }
+    .video-idea { font-size: 0.84rem; color: var(--muted); margin-top: 3px; }
+    .chevron { font-size: 0.8rem; color: var(--muted); transition: transform 0.25s; }
+    .video-item.open .chevron { transform: rotate(180deg); }
+
+    .video-body { display: none; padding: 0 20px 22px; }
+    .video-item.open .video-body { display: block; }
+
+    /* ── Prompt block with copy ── */
+    .prompt-block {
+      position: relative;
+      background: rgba(6,182,212,0.07);
+      border: 1px solid rgba(6,182,212,0.2);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+    .prompt-block pre {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 0.9rem;
+      line-height: 1.7;
+      color: #ddd;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(6,182,212,0.15);
+      border: 1px solid rgba(6,182,212,0.3);
+      color: var(--cyan);
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .copy-btn:hover { background: rgba(6,182,212,0.3); }
+    .copy-btn.copied { background: rgba(16,185,129,0.2); border-color: var(--green); color: var(--green); }
+
+    /* ── Negative prompt ── */
+    .neg-block {
+      background: rgba(239,68,68,0.06);
+      border: 1px solid rgba(239,68,68,0.2);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 0.85rem;
+      color: #fca5a5;
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+    .neg-block strong { display: block; font-size: 0.68rem; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; color: #f87171; }
+
+    /* ── Settings badges ── */
+    .settings-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: 50px;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    .badge-ratio { background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.3); color: #c4b5fd; }
+    .badge-dur   { background: rgba(251,146,60,0.12);  border: 1px solid rgba(251,146,60,0.3);  color: #fdba74; }
+    .badge-mode  { background: rgba(16,185,129,0.12);  border: 1px solid rgba(16,185,129,0.3);  color: #6ee7b7; }
+    .badge-motion{ background: rgba(234,179,8,0.12);   border: 1px solid rgba(234,179,8,0.3);   color: #fde68a; }
+
+    .sub-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 1.1px;
+      text-transform: uppercase;
+      color: var(--cyan);
+      margin-bottom: 8px;
+      margin-top: 16px;
+    }
+
+    /* Combined */
+    .combined-label { color: var(--green); }
+    .combined-label .dot { background: var(--green); }
+    .combined-box {
+      background: rgba(16,185,129,0.07);
+      border: 1px solid rgba(16,185,129,0.2);
+      border-radius: 14px;
+      padding: 18px 20px;
+    }
+    .combined-concept { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 12px; }
+    .combined-structure { font-size: 0.9rem; line-height: 1.7; color: #ccc; margin-bottom: 10px; }
+    .combined-duration {
+      font-size: 0.8rem; font-weight: 600; color: var(--green);
+      background: rgba(16,185,129,0.12);
+      display: inline-block; padding: 4px 12px; border-radius: 50px;
+    }
+
+    /* Hashtags */
+    .hashtags-label { color: var(--cyan); }
+    .hashtags-label .dot { background: var(--cyan); }
+    .hashtags-wrap { display: flex; flex-wrap: wrap; gap: 10px; }
+    .hashtag {
+      background: rgba(6,182,212,0.1);
+      border: 1px solid rgba(6,182,212,0.25);
+      color: var(--cyan);
+      padding: 6px 16px;
+      border-radius: 50px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    /* Caption */
+    .caption-label { color: var(--yellow); }
+    .caption-label .dot { background: var(--yellow); }
+    .caption-box {
+      background: rgba(234,179,8,0.07);
+      border: 1px solid rgba(234,179,8,0.2);
+      border-radius: 14px;
+      padding: 16px 20px;
+      font-size: 0.95rem;
+      line-height: 1.7;
+      color: #fef08a;
+      position: relative;
+    }
+
+    /* Error */
+    .error-box {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: #fca5a5;
+      border-radius: 14px;
+      padding: 16px 20px;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      width: 100%;
+      max-width: 700px;
+      margin-top: 24px;
+      display: none;
+    }
+
+    footer { margin-top: 48px; color: #333; font-size: 0.78rem; }
+
+    @media (max-width: 500px) {
+      header h1 { font-size: 1.75rem; }
+      .card { padding: 20px; }
+      .days label { width: 58px; }
+      .tool-options label { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>✦ AI Video Prompt Generator</h1>
+  <p>Generate ready-to-paste prompts for Kling AI & Dreamina — powered by Groq</p>
+</header>
+
+<div class="card">
+
+  <!-- API Key -->
+  <div class="field">
+    <span class="field-label">🔑 Groq API Key</span>
+    <div class="api-row">
+      <input type="password" id="api-key" placeholder="gsk_..." autocomplete="off" oninput="saveKey()" />
+      <button class="toggle-btn" onclick="toggleKey()">Show</button>
+    </div>
+    <div class="api-saved" id="api-saved">✓ Key saved locally</div>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- AI Video Tool -->
+  <div class="field">
+    <span class="field-label">🤖 AI Video Tool</span>
+    <div class="tool-options">
+      <input type="radio" name="tool" id="t1" value="Kling AI" checked />
+      <label for="t1">
+        🎬
+        <span class="tool-name">Kling AI</span>
+        <span class="tool-desc">Cinematic · High motion · 5s / 10s clips</span>
+      </label>
+
+      <input type="radio" name="tool" id="t2" value="Dreamina" />
+      <label for="t2">
+        ✨
+        <span class="tool-name">Dreamina</span>
+        <span class="tool-desc">CapCut AI · Aesthetic · 6s clips</span>
+      </label>
+    </div>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- Day -->
+  <div class="field">
+    <span class="field-label">📅 Post Day</span>
+    <div class="days">
+      <input type="radio" name="day" id="d1" value="Monday" checked />
+      <label for="d1">Mon<span>Day 1</span></label>
+      <input type="radio" name="day" id="d2" value="Tuesday" />
+      <label for="d2">Tue<span>Day 2</span></label>
+      <input type="radio" name="day" id="d3" value="Wednesday" />
+      <label for="d3">Wed<span>Day 3</span></label>
+      <input type="radio" name="day" id="d4" value="Thursday" />
+      <label for="d4">Thu<span>Day 4</span></label>
+      <input type="radio" name="day" id="d5" value="Friday" />
+      <label for="d5">Fri<span>Day 5</span></label>
+      <input type="radio" name="day" id="d6" value="Saturday" />
+      <label for="d6">Sat<span>Day 6</span></label>
+      <input type="radio" name="day" id="d7" value="Sunday" />
+      <label for="d7">Sun<span>Day 7</span></label>
+    </div>
+  </div>
+
+  <!-- Creator Type -->
+  <div class="field">
+    <span class="field-label">👤 Creator Niche</span>
+    <div class="options">
+      <input type="radio" name="personaj" id="p1" value="entrepreneur / business" checked />
+      <label for="p1">💼 Entrepreneur</label>
+      <input type="radio" name="personaj" id="p2" value="fitness coach" />
+      <label for="p2">💪 Fitness</label>
+      <input type="radio" name="personaj" id="p3" value="lifestyle creator" />
+      <label for="p3">✨ Lifestyle</label>
+      <input type="radio" name="personaj" id="p4" value="tech creator" />
+      <label for="p4">🤖 Tech</label>
+    </div>
+  </div>
+
+  <!-- Platform -->
+  <div class="field">
+    <span class="field-label">📱 Platform</span>
+    <div class="options">
+      <input type="radio" name="platforma" id="pl1" value="Instagram Reels" checked />
+      <label for="pl1">📸 Instagram Reels</label>
+      <input type="radio" name="platforma" id="pl2" value="TikTok" />
+      <label for="pl2">🎵 TikTok</label>
+      <input type="radio" name="platforma" id="pl3" value="YouTube Shorts" />
+      <label for="pl3">▶️ YouTube Shorts</label>
+    </div>
+  </div>
+
+  <!-- Content Type -->
+  <div class="field">
+    <span class="field-label">🎬 Video Style</span>
+    <div class="options">
+      <input type="radio" name="continut" id="c1" value="cinematic / aspirational" checked />
+      <label for="c1">🎥 Cinematic</label>
+      <input type="radio" name="continut" id="c2" value="motivational / energetic" />
+      <label for="c2">🔥 Motivational</label>
+      <input type="radio" name="continut" id="c3" value="aesthetic / lifestyle vlog" />
+      <label for="c3">✨ Aesthetic</label>
+      <input type="radio" name="continut" id="c4" value="tutorial / educational" />
+      <label for="c4">🎓 Tutorial</label>
+    </div>
+  </div>
+
+  <button id="generate" onclick="generate()">
+    <span id="btn-icon">✦</span>
+    <span id="btn-text">Generate AI Video Prompts</span>
+  </button>
+</div>
+
+<!-- Error -->
+<div class="error-box" id="error-box"></div>
+
+<!-- Output -->
+<div id="output">
+  <div class="result-card" id="card-hook">
+    <div class="section-label hook-label"><span class="dot"></span>⚡ Social Media Hook</div>
+    <div class="hook-box" id="hook-text"></div>
+  </div>
+
+  <div class="result-card" id="card-videos">
+    <div class="section-label videos-label"><span class="dot"></span>🎬 3 AI Video Prompts</div>
+    <div id="videos-list"></div>
+  </div>
+
+  <div class="result-card" id="card-combined">
+    <div class="section-label combined-label"><span class="dot"></span>🔗 Combined Edit Concept</div>
+    <div class="combined-box">
+      <div class="combined-concept" id="combined-concept"></div>
+      <div class="combined-structure" id="combined-structure"></div>
+      <span class="combined-duration" id="combined-duration"></span>
+    </div>
+  </div>
+
+  <div class="result-card" id="card-caption">
+    <div class="section-label caption-label"><span class="dot"></span>✍️ Post Caption</div>
+    <div class="caption-box" id="caption-text"></div>
+  </div>
+
+  <div class="result-card" id="card-hashtags">
+    <div class="section-label hashtags-label"><span class="dot"></span>🏷️ Hashtags</div>
+    <div class="hashtags-wrap" id="hashtags-list"></div>
+  </div>
+</div>
+
+<footer>AI Video Prompt Generator · Groq × Kling AI × Dreamina</footer>
+
+<script>
+  // ── API key persistence ──
+  const keyInput = document.getElementById('api-key');
+  const savedKey = localStorage.getItem('groq_api_key');
+  if (savedKey) { keyInput.value = savedKey; showSaved(); }
+
+  function saveKey() {
+    localStorage.setItem('groq_api_key', keyInput.value.trim());
+    showSaved();
+  }
+  function showSaved() {
+    document.getElementById('api-saved').style.display = keyInput.value.trim() ? 'block' : 'none';
+  }
+  function toggleKey() {
+    keyInput.type = keyInput.type === 'password' ? 'text' : 'password';
+    event.target.textContent = keyInput.type === 'password' ? 'Show' : 'Hide';
+  }
+
+  function getVal(name) {
+    return document.querySelector(`input[name="${name}"]:checked`)?.value || '';
+  }
+
+  function setLoading(on) {
+    const btn = document.getElementById('generate');
+    btn.disabled = on;
+    document.getElementById('btn-icon').innerHTML = on ? '<div class="spinner"></div>' : '✦';
+    document.getElementById('btn-text').textContent = on ? 'Generating prompts…' : 'Generate AI Video Prompts';
+  }
+
+  function showError(msg) {
+    const box = document.getElementById('error-box');
+    box.textContent = `⚠️ ${msg}`;
+    box.style.display = 'block';
+    document.getElementById('output').style.display = 'none';
+  }
+  function clearError() {
+    document.getElementById('error-box').style.display = 'none';
+  }
+
+  // ── Copy to clipboard ──
+  function copyText(btn, text) {
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = '✓ Copied';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  // ── Accordion ──
+  function toggleVideo(el) {
+    el.closest('.video-item').classList.toggle('open');
+  }
+
+  // ── Generate ──
+  async function generate() {
+    const apiKey = keyInput.value.trim();
+    if (!apiKey) { showError('Please enter your Groq API key first.'); return; }
+
+    const tool     = getVal('tool');
+    const personaj = getVal('personaj');
+    const platforma= getVal('platforma');
+    const continut = getVal('continut');
+    const day      = getVal('day');
+
+    clearError();
+    setLoading(true);
+
+    const isKling = tool === 'Kling AI';
+
+    const systemPrompt = `You are an expert AI video director and prompt engineer specializing in text-to-video generation for ${tool}.
+You write cinematic, highly detailed prompts that produce stunning results.
+Always respond with valid JSON only — no markdown, no code fences, no extra text.`;
+
+    const toolGuide = isKling
+      ? `Kling AI prompt style: Start with subject + action. Add camera movement (slow push in, tracking shot, drone pull back, orbit, handheld). Add lighting (cinematic lighting, golden hour, rim light, soft studio light). Add visual style (hyperrealistic, 8K, shallow depth of field, film grain, anamorphic lens flare). Mention mood. Keep under 200 words per prompt.
+Kling AI settings: aspect ratio (9:16 for Reels/TikTok, 16:9 for YouTube), duration (5s or 10s), motion strength (low/medium/high), mode (Standard or Professional).`
+      : `Dreamina (CapCut AI) prompt style: Describe the scene vividly. Add art style (photorealistic, cinematic, anime-style, aesthetic). Add lighting and color palette. Add camera perspective. Mention texture and atmosphere. Works best with clear subject + environment + mood. Keep under 150 words per prompt.
+Dreamina settings: aspect ratio (9:16 for vertical, 1:1 for square), duration (6s), style preset (Realistic / Cinematic / Anime / Illustration).`;
+
+    const userPrompt = `Generate 3 AI video prompts for ${tool} for this creator:
+- Creator niche: ${personaj}
+- Platform: ${platforma}
+- Video style: ${continut}
+- Post day: ${day}
+
+${toolGuide}
+
+Return ONLY this JSON:
+{
+  "hook": "A punchy scroll-stopping first-sentence hook for the social media caption (max 15 words, no hashtags)",
+  "videos": [
+    {
+      "title": "Short descriptive clip title",
+      "idea": "One sentence: what this clip shows and why it works for the creator",
+      "main_prompt": "The full text-to-video prompt ready to paste into ${tool}. Cinematic, detailed, specific. Include subject, action, camera movement, lighting, style, mood.",
+      "negative_prompt": "What to exclude: blurry, text overlay, watermark, distorted faces, low quality, shaky camera, overexposed",
+      "settings": {
+        "aspect_ratio": "${platforma === 'YouTube Shorts' ? '9:16' : platforma === 'Instagram Reels' ? '9:16' : '9:16'}",
+        "duration": "${isKling ? '5s or 10s' : '6s'}",
+        "motion_strength": "low / medium / high",
+        "mode": "${isKling ? 'Standard or Professional' : 'Realistic or Cinematic'}"
+      }
+    }
+  ],
+  "combined_edit": {
+    "concept": "How to edit these 3 clips into one final video: narrative flow, transitions, pacing",
+    "structure": "Detailed edit breakdown: which clip goes first, transition style between each (cut, fade, whip pan), what text/music to add, total structure. At least 60 words.",
+    "estimated_duration": "Total duration of the final edited video"
+  },
+  "caption": "A ready-to-post social media caption for ${platforma}. 3-4 sentences. Engaging, authentic, includes a question or CTA. No hashtags (they are separate).",
+  "hashtags": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5", "#tag6", "#tag7"]
+}`;
+
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user',   content: userPrompt   }
+          ],
+          temperature: 0.9,
+          max_tokens: 3000,
+          response_format: { type: 'json_object' }
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error?.message || `API error ${res.status}`);
+      }
+
+      const data   = await res.json();
+      const raw    = data.choices?.[0]?.message?.content || '{}';
+      const parsed = JSON.parse(raw);
+      render(parsed, tool);
+
+    } catch (e) {
+      showError(e.message || 'Something went wrong. Check your API key and try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ── Render ──
+  function render(d, tool) {
+    // Hook
+    document.getElementById('hook-text').textContent = `"${d.hook || '—'}"`;
+
+    // Videos
+    const vl = document.getElementById('videos-list');
+    vl.innerHTML = (d.videos || []).map((v, i) => {
+      const s = v.settings || {};
+      const mainPrompt = v.main_prompt || '';
+      const negPrompt  = v.negative_prompt || '';
+      return `
+      <div class="video-item" id="vi${i}">
+        <div class="video-header" onclick="toggleVideo(this)">
+          <div class="video-num">${i + 1}</div>
+          <div style="flex:1">
+            <div class="video-title">${v.title || 'Clip ' + (i+1)}</div>
+            <div class="video-idea">${v.idea || ''}</div>
+          </div>
+          <span class="chevron">▼</span>
+        </div>
+        <div class="video-body">
+
+          <div class="sub-label">⚙️ Recommended Settings</div>
+          <div class="settings-row">
+            <span class="badge badge-ratio">📐 ${s.aspect_ratio || '9:16'}</span>
+            <span class="badge badge-dur">⏱ ${s.duration || '—'}</span>
+            <span class="badge badge-motion">💨 Motion: ${s.motion_strength || '—'}</span>
+            <span class="badge badge-mode">🎛 ${s.mode || '—'}</span>
+          </div>
+
+          <div class="sub-label">✏️ Main Prompt — paste into ${tool}</div>
+          <div class="prompt-block">
+            <pre id="mp${i}">${mainPrompt}</pre>
+            <button class="copy-btn" onclick="copyText(this, document.getElementById('mp${i}').textContent)">Copy</button>
+          </div>
+
+          <div class="neg-block">
+            <strong>🚫 Negative Prompt</strong>
+            ${negPrompt}
+          </div>
+
+        </div>
+      </div>`;
+    }).join('');
+
+    // Auto-open first
+    const first = document.getElementById('vi0');
+    if (first) first.classList.add('open');
+
+    // Combined edit
+    const ce = d.combined_edit || {};
+    document.getElementById('combined-concept').textContent   = ce.concept   || '';
+    document.getElementById('combined-structure').textContent = ce.structure  || '';
+    document.getElementById('combined-duration').textContent  = ce.estimated_duration ? `⏱ ${ce.estimated_duration}` : '';
+
+    // Caption
+    document.getElementById('caption-text').textContent = d.caption || '';
+
+    // Hashtags
+    const hl = document.getElementById('hashtags-list');
+    hl.innerHTML = (d.hashtags || []).map(t => `<span class="hashtag">${t}</span>`).join('');
+
+    // Show & animate
+    const out = document.getElementById('output');
+    out.style.display = 'flex';
+    out.querySelectorAll('.result-card').forEach((el, i) => {
+      el.style.animation = 'none';
+      void el.offsetHeight;
+      el.style.animation = `fadeUp 0.4s ease ${i * 0.08}s both`;
+    });
+    out.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+</script>
+
+</body>
+</html>
